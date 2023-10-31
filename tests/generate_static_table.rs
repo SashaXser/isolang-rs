@@ -55,16 +55,16 @@ impl<'a> std::fmt::Display for Title<'a> {
 
 // parse autonym table
 fn read_autonyms_table(table: &str) -> HashMap<&str, Option<&str>> {
-    table
-        .lines()
-        .skip(1)
-        .map(|line| {
-            let mut cols = line.split('\t');
-            let three_letter = cols.next().unwrap();
-            (three_letter, cols.nth(2).filter(|s| !s.is_empty()))
-        })
-        .collect()
+    let mut autonyms_table = HashMap::new();
+    for line in table.lines().skip(1) {
+        let mut cols = line.split('\t');
+        let three_letter = cols.next().unwrap();
+        let autonym = cols.nth(2).filter(|s| !s.is_empty());
+        autonyms_table.insert(three_letter, autonym);
+    }
+    autonyms_table
 }
+
 
 /// Parse ISO 6639-(3,1) table.
 fn read_iso_table<'a>(
@@ -72,7 +72,6 @@ fn read_iso_table<'a>(
     autonyms_table: &'a str,
 ) -> Vec<LangCode<'a>> {
     let autonyms_table = read_autonyms_table(autonyms_table);
-    let mut seen_codes = std::collections::HashSet::new(); // Add this line
     iso_table
         .lines()
         .skip(1)
@@ -85,21 +84,13 @@ fn read_iso_table<'a>(
                 _ => None,
             };
 
-            // Check if code_3 is already seen, if yes, skip the entry
-            if seen_codes.contains(code_3) {
-                return None;
-            }
-            seen_codes.insert(code_3);
-
             // split language string into name and comment, if required
             let mut parts = cols.nth(2).unwrap().split('(');
             let name_en = parts.next().unwrap().trim_end();
-            Some(LangCode { code_3, code_1, name_en, autonym })
+            LangCode { code_3, code_1, name_en, autonym }
         })
-        .filter_map(|x| x) // Add this line to remove the None values
         .collect()
 }
-
 
 /// Write static array with (639-3, 639-1, english name, comment) entries.
 fn write_overview_table(out: &mut String, codes: &[LangCode]) {
