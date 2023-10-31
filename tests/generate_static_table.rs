@@ -72,6 +72,7 @@ fn read_iso_table<'a>(
     autonyms_table: &'a str,
 ) -> Vec<LangCode<'a>> {
     let autonyms_table = read_autonyms_table(autonyms_table);
+    let mut seen_codes = std::collections::HashSet::new(); // Add this line
     iso_table
         .lines()
         .skip(1)
@@ -84,13 +85,21 @@ fn read_iso_table<'a>(
                 _ => None,
             };
 
+            // Check if code_3 is already seen, if yes, skip the entry
+            if seen_codes.contains(code_3) {
+                return None;
+            }
+            seen_codes.insert(code_3);
+
             // split language string into name and comment, if required
             let mut parts = cols.nth(2).unwrap().split('(');
             let name_en = parts.next().unwrap().trim_end();
-            LangCode { code_3, code_1, name_en, autonym }
+            Some(LangCode { code_3, code_1, name_en, autonym })
         })
+        .filter_map(|x| x) // Add this line to remove the None values
         .collect()
 }
+
 
 /// Write static array with (639-3, 639-1, english name, comment) entries.
 fn write_overview_table(out: &mut String, codes: &[LangCode]) {
