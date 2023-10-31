@@ -55,16 +55,16 @@ impl<'a> std::fmt::Display for Title<'a> {
 
 // parse autonym table
 fn read_autonyms_table(table: &str) -> HashMap<&str, Option<&str>> {
-    let mut autonyms_table = HashMap::new();
-    for line in table.lines().skip(1) {
-        let mut cols = line.split('\t');
-        let three_letter = cols.next().unwrap();
-        let autonym = cols.nth(2).filter(|s| !s.is_empty());
-        autonyms_table.insert(three_letter, autonym);
-    }
-    autonyms_table
+    table
+        .lines()
+        .skip(1)
+        .map(|line| {
+            let mut cols = line.split('\t');
+            let three_letter = cols.next().unwrap();
+            (three_letter, cols.nth(2).filter(|s| !s.is_empty()))
+        })
+        .collect()
 }
-
 
 /// Parse ISO 6639-(3,1) table.
 fn read_iso_table<'a>(
@@ -187,28 +187,14 @@ fn generated_code_table_if_outdated() {
         &mut new_code,
 r###"#[cfg_attr(feature = "async-graphql", derive(async_graphql::Enum))]"###).unwrap();
     writeln!(&mut new_code, "pub enum Language {{").unwrap();
+    
+    let mut seen = std::collections::HashSet::new();
     for (num, lang) in codes.iter().enumerate() {
-        writeln!(&mut new_code, "    #[doc(hidden)]").unwrap();
-        writeln!(&mut new_code, "    {} = {},", Title(lang.code_3), num)
-            .unwrap();
-    }
-    writeln!(&mut new_code, "}}\n").unwrap();
-
-    // write implementation for From<usize>
-    writeln!(&mut new_code, "\nimpl Language {{\n").unwrap();
-    writeln!(
-        &mut new_code,
-        "pub fn from_usize(u: usize) -> Option<Self> {{\n        match u {{"
-    )
-    .unwrap();
-    for (num, lang) in codes.iter().enumerate() {
-        writeln!(
-            &mut new_code,
-            "{} => Some(Language::{}),",
-            num,
-            Title(lang.code_3)
-        )
-        .unwrap();
+        if seen.insert(lang.code_3) {
+            writeln!(&mut new_code, "    #[doc(hidden)]").unwrap();
+            writeln!(&mut new_code, "    {} = {},", Title(lang.code_3), num)
+                .unwrap();
+        }
     }
     writeln!(&mut new_code, "    _ => None,").unwrap();
 
